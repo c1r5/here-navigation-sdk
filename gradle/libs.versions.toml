@@ -16,6 +16,9 @@ materialVersion = "1.12.0"
 playServicesLocation = "21.3.0"
 lifecycleViewmodelKtx = "2.8.2"
 gson = "2.11.0"
+kotlinGradlePlugin = "2.0.20-Beta1"
+gradleVersion = "8.6.0-alpha07"
+androidGradle = "8.5.0"
 
 [libraries]
 androidx-constraintlayout-v211 = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayoutVersion" }
@@ -33,8 +36,12 @@ material-v140 = { module = "com.google.android.material:material", version.ref =
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
+kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlinGradlePlugin" }
+build-gradle = { group = "com.android.tools.build", name = "gradle", version.ref = "gradleVersion" }
+android-gradle = { group = "com.android.tools.build", name = "gradle", version.ref = "androidGradle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+android-library = { id = "com.android.library", version.ref = "agp" }
 

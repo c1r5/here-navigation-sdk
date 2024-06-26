@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "here navigate sdk"
 include(":app")
+include(":herenavigation")
