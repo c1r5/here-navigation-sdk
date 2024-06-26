@@ -1,0 +1,32 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdk 34
+    defaultConfig {
+        applicationId "com.here.navigation"
+        minSdkVersion 23
+        targetSdkVersion 34
+        versionCode 1
+        versionName "1.0"
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility 1.8
+        targetCompatibility 1.8
+    }
+    namespace 'com.here.navigation'
+}
+
+dependencies {
+    //implementation project(path: ':app', configuration: 'default')
+    implementation fileTree(dir: '../app/libs', include: ['*.aar', '*.jar'], exclude: ['*mock*.jar'])
+    implementation libs.appcompat.v131
+    implementation libs.androidx.constraintlayout.v211
+    implementation libs.material.v140
+}

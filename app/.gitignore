@@ -1,0 +1,4 @@
+/build
+/src/main/assets/*.json
+/libs/*.aar
+/libs/*.jar
