@@ -3,14 +3,14 @@ package br.com.herenavigatesdk
 import android.Manifest
 import android.app.Application
 import br.com.herenavigatesdk.data.dtos.RoutePoint
-import com.cire.herenavigation.core.HereSDKModule
+import com.cire.herenavigation.core.CoreSDK
 import com.google.gson.Gson
 
 class BaseApp : Application() {
 
 
     companion object {
-        private var mockedRoutePoints: List<RoutePoint>? = null
+        private var mockedRoutePoints: List<RoutePoint> = emptyList()
 
         @JvmStatic
         val TAG = "HERENAVIGATESDK"
@@ -36,7 +36,7 @@ class BaseApp : Application() {
         mockedRoutePoints = assets.open("pontos.json").bufferedReader().use {
             gson().fromJson(it, Array<RoutePoint>::class.java).toList()
         }
-        HereSDKModule.initialize(
+        CoreSDK.init(
             this,
             getString(R.string.HERE_ACCESS_KEY_ID),
             getString(R.string.HERE_ACCESS_KEY_SECRET)
