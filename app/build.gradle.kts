@@ -20,9 +20,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        resValue("string", "HERE_USER_ID", properties.getProperty("here.user.id"))
-        resValue("string", "HERE_CLIENT_ID", properties.getProperty("here.client.id"))
+        
         resValue(
             "string",
             "HERE_ACCESS_KEY_ID",
@@ -32,11 +30,6 @@ android {
             "string",
             "HERE_ACCESS_KEY_SECRET",
             properties.getProperty("here.access.key.secret")
-        )
-        resValue(
-            "string",
-            "HERE_TOKEN_ENDPOINT_URL",
-            properties.getProperty("here.token.endpoint.url")
         )
     }
 
