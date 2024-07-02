@@ -1,6 +1,9 @@
 package br.com.herenavigatesdk.ui.viewmodels
 
 import android.location.Location
+import android.os.Handler
+import android.os.Looper
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,11 +11,15 @@ import br.com.herenavigatesdk.BaseApp.Companion.TAG
 import br.com.herenavigatesdk.BaseApp.Companion.mockedRoutePoints
 import br.com.herenavigatesdk.R
 import br.com.herenavigatesdk.data.providers.RouteProviderImpl
+import com.cire.herenavigation.audio.VoiceAssistant
 import com.cire.herenavigation.core.CoreCamera
 import com.cire.herenavigation.core.CoreNavigation
 import com.cire.herenavigation.core.CoreRouting
 import com.cire.herenavigation.core.CoreSDK
+import com.cire.herenavigation.core.CoreSDK.Companion.toWayPoint
+import com.cire.herenavigation.core.addMarker
 import com.cire.herenavigation.core.addRoute
+import com.cire.herenavigation.provider.HEREPositioningSimulator
 import com.google.android.gms.location.LocationAvailability
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationResult
@@ -20,25 +27,39 @@ import com.google.android.gms.tasks.OnSuccessListener
 import com.here.sdk.core.Color
 import com.here.sdk.core.GeoCoordinates
 import com.here.sdk.mapview.MapView
+import com.here.sdk.navigation.MilestoneStatus
 import com.here.sdk.routing.CalculateRouteCallback
+import com.here.sdk.routing.Route
 import com.here.sdk.routing.Waypoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.round
 
 class MapActivityViewModel : ViewModel() {
+    private var voiceAssistant: VoiceAssistant? = null
     private val mockedRoutePoints = mockedRoutePoints()
+    private val herePositioningSimulator =
+        HEREPositioningSimulator()
+
+
     private val routeProvider: RouteProviderImpl = RouteProviderImpl(mockedRoutePoints)
     private val waypoints = routeProvider.waypoints().toMutableList()
     private val geoCoordinates = MutableStateFlow<GeoCoordinates?>(null)
-
+    private val calculatedRoute = MutableStateFlow<Route?>(null)
     private val icWaypoint = R.drawable.ic_waypoint
     private val icOrigin = R.drawable.ic_origin
     private val icDestination = R.drawable.ic_destination
 
     private var coreLoader: CoreLoader? = null
 
+    private val _mockAlertPoints = MutableStateFlow<MutableList<GeoCoordinates>>(mutableListOf())
     private val _isNavigating = MutableStateFlow(false)
+    private val _onLocationChanged = MutableStateFlow<Location?>(null)
+    private val _onNavigationError = MutableStateFlow<Throwable?>(null)
+    private val _lastAlert = MutableStateFlow<AlertType?>(null)
+
+    val onNavigationError = _onNavigationError.asStateFlow()
     val isNavigating = _isNavigating.asStateFlow()
 
     companion object {
@@ -81,7 +102,6 @@ class MapActivityViewModel : ViewModel() {
 
     }
 
-
     fun oneTimeLocationListener(
         coreLoader: CoreLoader
     ) = OnSuccessListener<Location> { location ->
@@ -99,6 +119,12 @@ class MapActivityViewModel : ViewModel() {
             coreCamera.recenter(geoCoordinates.value!!)
             coreSDK.indicator(geoCoordinates.value!!)
             coreSDK.showMarkers(routeProvider, icWaypoint, icOrigin, icDestination)
+            setMockAlertPoint(coreSDK.mapView, GeoCoordinates(-26.92084457068429, -48.67563123438851))
+            setMockAlertPoint(coreSDK.mapView, GeoCoordinates(-26.919312614575023, -48.67259518613555))
+            setMockAlertPoint(coreSDK.mapView, GeoCoordinates(-26.91415802068359, -48.66482667903886))
+            mockedRoutePoints.forEach {
+                coreSDK.showCircle(CoreSDK.toGeoCoordinates(it.lat, it.lng), it.raio, R.color.blue_A700)
+            }
             coreRouting.calculateRoute(
                 routeProvider,
                 calculateRouteCallback(coreSDK.mapView, coreNavigation)
@@ -106,22 +132,76 @@ class MapActivityViewModel : ViewModel() {
         }
     }
 
-    fun onRecenterButtonPressed() = geoCoordinates.value?.let {
-        coreLoader?.coreCamera?.recenter(it)
+    fun onRecenterButtonPressed() {
+        geoCoordinates.value?.let {
+            coreLoader?.coreCamera?.recenter(it)
+        }
     }
 
-    fun onStartNavigationButtonPressed() {
+    fun stopNavigationEvent() {
         viewModelScope.launch {
-            if (isNavigating.value) {
-                coreLoader?.coreNavigation?.dispose()
-                coreLoader?.coreCamera?.recenter(geoCoordinates.value!!)
-                _isNavigating.emit(false)
-            } else {
-                coreLoader?.coreNavigation?.startNavigation()
-                    ?.onSuccess {
-                        _isNavigating.emit(true)
-                    }?.onFailure { Log.d(TAG, "failed to start navigation: $it") }
-            }
+            coreLoader?.coreNavigation?.dispose()
+            coreLoader?.coreCamera?.recenter(geoCoordinates.value!!)
+            herePositioningSimulator.stopLocating()
+            _isNavigating.emit(false)
+        }
+    }
+
+    fun startNavigationEvent() {
+        coreLoader?.coreNavigation?.voiceAssistant?.let {
+            voiceAssistant = it
+        }
+        viewModelScope.launch {
+
+            coreLoader
+                ?.coreNavigation?.setMilestoneStatusListener { milestone, milestoneStatus ->
+                    when (milestoneStatus) {
+                        MilestoneStatus.REACHED -> {
+
+                        }
+                        MilestoneStatus.MISSED -> {
+                            Log.d(TAG, "MISSED")
+                        }
+                    }
+                }?.setDestinationReachedListener {
+
+                }?.startNavigation {locationListener ->
+
+                    _isNavigating.tryEmit(true)
+
+                    if (calculatedRoute.value == null){
+                        _onNavigationError.tryEmit(Throwable("Route is null"))
+                        return@startNavigation
+                    }
+                    onSecurityBeltAlert()
+                    herePositioningSimulator.startLocating({location ->
+                        locationListener.onLocationUpdated(location)
+
+                        val distance1 = round(_mockAlertPoints.value[1].distanceTo(location.coordinates)).toInt()
+                        val distance2 = round(_mockAlertPoints.value[2].distanceTo(location.coordinates)).toInt()
+
+                        if (distance1 in 0..100) {
+                            if (_lastAlert.value != AlertType.SMOKING) {
+                                onSmokingAlert()
+                            }
+                        }
+
+                        if (distance2 in 0..100) {
+                            if (_lastAlert.value != AlertType.SPEED) {
+                                onSpeedAlert()
+                            }
+                        }
+
+                        val distanceToWaypoint = location.coordinates.distanceTo(routeProvider.waypoints().first().coordinates)
+                        val isNearWaypoint = round(distanceToWaypoint).toInt() in 100..300
+                        if (isNearWaypoint) {
+                            if (_lastAlert.value != AlertType.NEAR_DESTINATION) {
+                                speak("Você está proximo do destino.")
+                                _lastAlert.value = AlertType.NEAR_DESTINATION
+                            }
+                        }
+                    }, calculatedRoute.value!!)
+                }
         }
     }
 
@@ -139,7 +219,10 @@ class MapActivityViewModel : ViewModel() {
 
     fun onLocationChangedCallback() = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
-
+            _onLocationChanged.tryEmit(result.lastLocation)
+            result.lastLocation?.let {
+                geoCoordinates.value = GeoCoordinates(it.latitude, it.longitude)
+            }
         }
 
         override fun onLocationAvailability(result: LocationAvailability) {
@@ -153,9 +236,44 @@ class MapActivityViewModel : ViewModel() {
                 Log.d(TAG, "failed to calculate route: ${error.name}")
             } ?: run {
                 val route = routes?.first()
+                calculatedRoute.value = route
                 val color = mapView.context.getColor(R.color.blue_A700)
                 route?.addRoute(mapView.mapScene, Color.valueOf(color), 10)
                 route?.let { coreNavigation.setRoute(route) }
             }
         }
+
+    private fun setMockAlertPoint(mapView: MapView, geoCoordinates: GeoCoordinates) {
+        _mockAlertPoints.value.add(geoCoordinates)
+        geoCoordinates.toWayPoint().addMarker(mapView, R.drawable.ic_pin)
+    }
+
+    private fun onSecurityBeltAlert() {
+        _lastAlert.value = AlertType.SECURITY_BELT
+        speak("Por favor verifique seu cinto de segurança.")
+    }
+
+    private fun onSmokingAlert() {
+        _lastAlert.value = AlertType.SMOKING
+        speak("Por favor evite fumar na direção.")
+    }
+
+    private fun onSpeedAlert() {
+        _lastAlert.value = AlertType.SPEED
+        speak("Por favor reduza a velocidade.")
+    }
+
+    private fun speak(text: String) {
+        viewModelScope.launch {
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (voiceAssistant?.textToSpeech?.isSpeaking == false) {
+                    voiceAssistant?.textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+                }
+            }, 500)
+        }
+    }
+
+    enum class AlertType {
+        SECURITY_BELT, SMOKING, SPEED, NEAR_DESTINATION
+    }
 }

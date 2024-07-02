@@ -33,7 +33,7 @@ class BaseApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        mockedRoutePoints = assets.open("pontos.json").bufferedReader().use {
+        mockedRoutePoints = assets.open("waypoints.json").bufferedReader().use {
             gson().fromJson(it, Array<RoutePoint>::class.java).toList()
         }
         CoreSDK.init(

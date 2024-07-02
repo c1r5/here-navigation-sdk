@@ -10,7 +10,7 @@ import com.here.time.Duration
 
 class CoreCamera(private val mapView: MapView) {
     private val mapCamera = mapView.camera
-    private val defaultDistance = (1000 * 10).toDouble()
+    private val defaultDistance = (1000 * 3).toDouble()
     private val defaultMeasure = MapMeasure(MapMeasure.Kind.DISTANCE, defaultDistance)
     fun recenter(geoCoordinates: GeoCoordinates) {
         val geoCoordinatesUpdate = GeoCoordinatesUpdate(geoCoordinates)

@@ -1,6 +1,7 @@
 package br.com.herenavigatesdk.ui.activities
 
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
@@ -13,7 +14,8 @@ import br.com.herenavigatesdk.databinding.ActivityMapBinding
 import br.com.herenavigatesdk.ui.viewmodels.MapActivityViewModel
 import br.com.herenavigatesdk.ui.viewmodels.MapActivityViewModel.Companion.CoreLoader
 import br.com.herenavigatesdk.usecase.hasLocationPermission
-import com.cire.herenavigation.audio.PermissionsRequestor
+import com.cire.herenavigation.audio.VoiceAssistant
+import com.cire.herenavigation.helper.PermissionsRequestor
 import com.cire.herenavigation.core.CoreCamera
 import com.cire.herenavigation.core.CoreNavigation
 import com.cire.herenavigation.core.CoreRouting
@@ -42,7 +44,7 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
     private lateinit var coreNavigation: CoreNavigation
     private lateinit var coreLoader: CoreLoader
     private lateinit var permissionsRequestor: PermissionsRequestor
-
+    private lateinit var voiceAssistant: VoiceAssistant
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -58,7 +60,8 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
         fabRecenter = activityMapBinding.fabRecenter
         fabToggleAudio = activityMapBinding.fabToggleAudio
 
-        permissionsRequestor = PermissionsRequestor(this)
+        permissionsRequestor =
+            PermissionsRequestor(this)
         geolocationProvider = GeolocationProvider(this)
 
         coreSDK = CoreSDK(mapView).apply { loadScene() }
@@ -86,14 +89,27 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
                     showPermissionDeniedDialog()
                 }
             })
+        } else {
+            geolocationProvider.oneTimeLocation(
+                mapActivityViewModel.oneTimeLocationListener(
+                    coreLoader
+                )
+            )
         }
 
         fabRecenter.setOnClickListener {
             mapActivityViewModel.onRecenterButtonPressed()
+
         }
 
         fabStartNavigation.setOnClickListener {
-            mapActivityViewModel.onStartNavigationButtonPressed()
+            if(mapActivityViewModel.isNavigating.value) {
+                mapActivityViewModel.stopNavigationEvent()
+                geolocationProvider.stopLocationUpdates()
+            } else {
+                mapActivityViewModel.startNavigationEvent()
+                geolocationProvider.onLocationChanged(mapActivityViewModel.onLocationChangedCallback())
+            }
         }
 
         fabToggleAudio.setOnClickListener {
@@ -113,18 +129,25 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
             mapActivityViewModel.isNavigating.collect {
                 if (it) {
                     fabStartNavigation.text = getString(R.string.stop_navigation)
+                    fabStartNavigation.backgroundTintList = getColorStateList(R.color.red_A700)
                 } else {
                     fabStartNavigation.text = getString(R.string.start_navigation)
+                    fabStartNavigation.backgroundTintList = getColorStateList(R.color.green_300)
                 }
             }
         }
 
         CoroutineScope(Dispatchers.IO).launch {
             coreSDK.onCoreError.collect {
-                Log.d(TAG, "onCoreError: $it")
+                it?.let {Log.d(TAG, "onCoreError: $it")}
             }
         }
 
+        CoroutineScope(Dispatchers.IO).launch {
+            mapActivityViewModel.onNavigationError.collect {
+                it?.let {Log.d(TAG, "onNavigationError: $it")}
+            }
+        }
     }
 
 

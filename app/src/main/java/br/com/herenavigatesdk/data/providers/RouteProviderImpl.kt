@@ -12,6 +12,8 @@ class RouteProviderImpl(private val routePoints: List<RoutePoint>): RouteProvide
         Waypoint(CoreSDK.toGeoCoordinates(it.lat, it.lng))
     }
 
+    var mockedRoutePoints = routePoints
+
     var origin = _origin
     var destination = _destination
     var waypoints = _waypoints

@@ -1,14 +1,19 @@
 package com.cire.herenavigation.core
 
 import android.content.Context
+import com.here.sdk.core.Color
+import com.here.sdk.core.GeoCircle
 import com.here.sdk.core.GeoCoordinates
+import com.here.sdk.core.GeoPolygon
 import com.here.sdk.core.Location
 import com.here.sdk.core.engine.SDKNativeEngine
 import com.here.sdk.core.engine.SDKOptions
 import com.here.sdk.mapview.LocationIndicator
 import com.here.sdk.mapview.LocationIndicator.IndicatorStyle
+import com.here.sdk.mapview.MapPolygon
 import com.here.sdk.mapview.MapScheme
 import com.here.sdk.mapview.MapView
+import com.here.sdk.routing.Waypoint
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +33,19 @@ class CoreSDK(
         @JvmStatic
         fun toGeoCoordinates(latitude: Double, longitude: Double): GeoCoordinates {
             return GeoCoordinates(latitude, longitude)
+        }
+
+        @JvmStatic
+        fun GeoCoordinates.toWayPoint(): Waypoint {
+            return Waypoint(this)
+        }
+
+        @JvmStatic
+        fun GeoCoordinates.toLocation(): Location {
+            return Location(this).apply {
+                time = Date()
+                bearingInDegrees = Math.random() * 360
+            }
         }
 
         fun init(
@@ -71,7 +89,6 @@ class CoreSDK(
             }
         }
     }
-
     fun loadScene() {
         mapScene.loadScene(MapScheme.NORMAL_DAY) { mapError ->
             mapError?.let {
@@ -81,16 +98,17 @@ class CoreSDK(
             }
         }
     }
-
+    fun showCircle(center: GeoCoordinates, radius: Double, color: Int) {
+        mapScene.addCircle(center, radius, color)
+    }
     fun showMarkers(
         routeProvider: RouteProvider,
         stopMarkerDrawable: Int,
         originMarkerDrawable: Int = stopMarkerDrawable,
         destinationMarkerDrawable: Int = stopMarkerDrawable
     ) {
-        routeProvider.waypoints()
-            .forEach { waypoint -> waypoint.addMarker(mapView, stopMarkerDrawable) }
+        routeProvider.waypoints().forEach { waypoint -> waypoint.addMarker(mapView, stopMarkerDrawable) }
         routeProvider.origin().addMarker(mapView, originMarkerDrawable)
-        routeProvider.destination().addMarker(mapView, stopMarkerDrawable)
+        routeProvider.destination().addMarker(mapView, destinationMarkerDrawable)
     }
 }

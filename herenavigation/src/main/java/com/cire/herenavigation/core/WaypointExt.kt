@@ -13,5 +13,6 @@ fun Waypoint.addMarker(
     val mapScene = mapView.mapScene
     val geoCoordinates = coordinates
     val mapMarker = MapMarker(geoCoordinates, MapImageFactory.fromResource(context.resources, drawable))
+    mapScene.removeMapMarker(mapMarker)
     mapScene.addMapMarker(mapMarker)
 }

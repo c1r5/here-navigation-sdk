@@ -10,6 +10,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.OnSuccessListener
+import com.here.sdk.navigation.LocationSimulator
 
 @SuppressLint("MissingPermission")
 class GeolocationProvider(private val context: Context) {
