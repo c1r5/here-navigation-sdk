@@ -58,7 +58,7 @@ class MapActivityViewModel : ViewModel() {
     private val _onLocationChanged = MutableStateFlow<Location?>(null)
     private val _onNavigationError = MutableStateFlow<Throwable?>(null)
     private val _lastAlert = MutableStateFlow<AlertType?>(null)
-
+    private val _userZoomDistance = MutableStateFlow(1000 * 3)
     val onNavigationError = _onNavigationError.asStateFlow()
     val isNavigating = _isNavigating.asStateFlow()
 
@@ -134,14 +134,14 @@ class MapActivityViewModel : ViewModel() {
 
     fun onRecenterButtonPressed() {
         geoCoordinates.value?.let {
-            coreLoader?.coreCamera?.recenter(it)
+            coreLoader?.coreCamera?.recenter(it, _userZoomDistance.value.toDouble())
         }
     }
 
     fun stopNavigationEvent() {
         viewModelScope.launch {
             coreLoader?.coreNavigation?.dispose()
-            coreLoader?.coreCamera?.recenter(geoCoordinates.value!!)
+            coreLoader?.coreCamera?.recenter(geoCoordinates.value!!, _userZoomDistance.value.toDouble())
             herePositioningSimulator.stopLocating()
             _isNavigating.emit(false)
         }
