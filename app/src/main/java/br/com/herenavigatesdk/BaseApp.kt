@@ -10,7 +10,7 @@ class BaseApp : Application() {
 
 
     companion object {
-        private var mockedRoutePoints: List<RoutePoint> = emptyList()
+        var mockedRoutePoints: List<RoutePoint> = emptyList()
 
         @JvmStatic
         val TAG = "HERENAVIGATESDK"

@@ -8,9 +8,10 @@ import com.here.sdk.mapview.MapScene
 import com.here.sdk.mapview.RenderSize
 import com.here.sdk.routing.Route
 
-fun Route.addRoute(mapScene: MapScene, color: Color, width: Int) {
+fun MapScene.addRoute(route: Route, color: Color, width: Int) {
     val mapMeasureDependentRenderSize =  MapMeasureDependentRenderSize(RenderSize.Unit.PIXELS, width.toDouble())
     val mapPolylineRepresentation = MapPolyline.SolidRepresentation(mapMeasureDependentRenderSize, color, LineCap.ROUND)
-    val mapPolyline = MapPolyline(geometry, mapPolylineRepresentation)
-    mapScene.addMapPolyline(mapPolyline)
+    val mapPolyline = MapPolyline(route.geometry, mapPolylineRepresentation)
+    addMapPolyline(mapPolyline)
 }
+

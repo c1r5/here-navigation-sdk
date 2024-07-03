@@ -61,19 +61,19 @@ public class HEREPositioningProvider {
     };
 
     public HEREPositioningProvider() {
-        ConsentEngine consentEngine;
+        //ConsentEngine consentEngine;
 
         try {
-            consentEngine = new ConsentEngine();
+           // consentEngine = new ConsentEngine();
             locationEngine = new LocationEngine();
         } catch (InstantiationErrorException e) {
             throw new RuntimeException("Initialization failed: " + e.getMessage());
         }
 
         // Ask user to optionally opt in to HERE's data collection / improvement program.
-        if (consentEngine.getUserConsentState() == Consent.UserReply.NOT_HANDLED) {
-            consentEngine.requestUserConsent();
-        }
+//        if (consentEngine.getUserConsentState() == Consent.UserReply.NOT_HANDLED) {
+//            consentEngine.requestUserConsent();
+//        }
     }
 
     @Nullable

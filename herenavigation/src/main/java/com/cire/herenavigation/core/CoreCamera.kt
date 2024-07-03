@@ -11,6 +11,7 @@ import com.here.time.Duration
 class CoreCamera(private val mapView: MapView) {
     private val mapCamera = mapView.camera
     private val defaultDistance = (1000 * 250).toDouble()
+
     fun recenter(geoCoordinates: GeoCoordinates, distance: Double = defaultDistance) {
         val recenterMeasure = MapMeasure(MapMeasure.Kind.DISTANCE, distance)
         val geoCoordinatesUpdate = GeoCoordinatesUpdate(geoCoordinates)
@@ -22,6 +23,10 @@ class CoreCamera(private val mapView: MapView) {
             bowFactor = bowFactor,
             duration = Duration.ofSeconds(3)
         )
+    }
+
+    fun lookAt(geoCoordinates: GeoCoordinates, distance: Double = defaultDistance) {
+        mapCamera.lookAt(geoCoordinates)
     }
 
     private fun cameraAnimation(

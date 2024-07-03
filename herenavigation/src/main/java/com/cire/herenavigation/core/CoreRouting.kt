@@ -18,6 +18,15 @@ class CoreRouting {
                 e
             }
         }
+
+        @JvmStatic
+        fun isInitialized(): Boolean {
+            return routingEngine != null
+        }
+
+        @JvmStatic
+        fun dispose() {
+        }
     }
 
     fun calculateRoute(routeProvider: RouteProvider, calculateRouteCallback: CalculateRouteCallback) {
@@ -31,6 +40,6 @@ class CoreRouting {
             destination
         )
 
-        routingEngine?.calculateRoute(waypoints, CarOptions(), calculateRouteCallback) ?: throw IllegalStateException("Routing engine is not initialized.")
+        routingEngine?.calculateRoute(waypoints, CarOptions(), calculateRouteCallback)
     }
 }

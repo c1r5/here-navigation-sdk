@@ -1,6 +1,7 @@
 package com.cire.herenavigation.core
 
 import android.content.Context
+import com.here.odnp.util.Log
 import com.here.sdk.core.Color
 import com.here.sdk.core.GeoCircle
 import com.here.sdk.core.GeoCoordinates
@@ -13,20 +14,26 @@ import com.here.sdk.mapview.LocationIndicator.IndicatorStyle
 import com.here.sdk.mapview.MapPolygon
 import com.here.sdk.mapview.MapScheme
 import com.here.sdk.mapview.MapView
+import com.here.sdk.routing.CalculateRouteCallback
+import com.here.sdk.routing.Route
 import com.here.sdk.routing.Waypoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.Date
 
 
 class CoreSDK(
-    val mapView: MapView
+    private val mapView: MapView
 ) {
-    private val _onCoreError = MutableStateFlow<Throwable?>(null)
-    val onCoreError: Flow<Throwable?> = _onCoreError.asStateFlow()
+
 
     companion object {
+        private val _onCoreError = MutableStateFlow<Throwable?>(null)
+
         @JvmStatic
         val isInitialized: Boolean get() = SDKNativeEngine.getSharedInstance() != null
 
@@ -52,13 +59,12 @@ class CoreSDK(
             context: Context,
             accessKeyID: String,
             accessKeySecret: String,
-        ): InstantiationException? {
-            return try {
+        ) {
+            try {
                 val sdkOptions = SDKOptions(accessKeyID, accessKeySecret)
                 SDKNativeEngine.makeSharedInstance(context, sdkOptions)
-                null
             } catch (e: InstantiationException) {
-                e
+                _onCoreError.tryEmit(e.cause)
             }
         }
 
@@ -76,6 +82,11 @@ class CoreSDK(
     private val locationIndicator = LocationIndicator(mapView)
     private var location: Location? = null
 
+    fun onCoreError(error: (Throwable?) -> Unit) = CoroutineScope(Dispatchers.Main).launch {
+        _onCoreError.collect {
+            it?.let { error(it) }
+        }
+    }
     fun indicator(geoCoordinates: GeoCoordinates) {
         location = Location(geoCoordinates).apply {
             time = Date()
@@ -84,6 +95,7 @@ class CoreSDK(
         locationIndicator.apply {
             updateLocation(location!!)
             locationIndicatorStyle = IndicatorStyle.PEDESTRIAN
+
             if (!isActive) {
                 enable(mapView)
             }
@@ -98,6 +110,10 @@ class CoreSDK(
             }
         }
     }
+    fun updateLocation(location: Location) {
+        this.location = location
+        locationIndicator.updateLocation(location)
+    }
     fun showCircle(center: GeoCoordinates, radius: Double, color: Int) {
         mapScene.addCircle(center, radius, color)
     }
@@ -110,5 +126,21 @@ class CoreSDK(
         routeProvider.waypoints().forEach { waypoint -> waypoint.addMarker(mapView, stopMarkerDrawable) }
         routeProvider.origin().addMarker(mapView, originMarkerDrawable)
         routeProvider.destination().addMarker(mapView, destinationMarkerDrawable)
+    }
+    fun showRoute(routeProvider: RouteProvider, color: Int, width: Int) {
+        if (CoreRouting.isInitialized()) {
+            CoreRouting().calculateRoute(
+                routeProvider
+            ) { routingError, routes ->
+                routingError?.let {
+                    _onCoreError.tryEmit(Throwable(it.name))
+                } ?: run {
+                    Log.d("HERENAVIGATESDK", "calculateRoute: $routes")
+                    routes?.first()?.let {route: Route ->  mapScene.addRoute(route, Color.valueOf(color), width) }
+                }
+            }
+        } else {
+            _onCoreError.tryEmit(Throwable("Routing engine is not initialized."))
+        }
     }
 }
