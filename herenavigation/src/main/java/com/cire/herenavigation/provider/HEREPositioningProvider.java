@@ -34,6 +34,10 @@ import com.here.sdk.location.LocationEngine;
 import com.here.sdk.location.LocationEngineStatus;
 import com.here.sdk.location.LocationFeature;
 import com.here.sdk.location.LocationStatusListener;
+import com.here.sdk.navigation.LocationSimulator;
+import com.here.sdk.navigation.LocationSimulatorOptions;
+import com.here.sdk.routing.Route;
+import com.here.time.Duration;
 
 import java.util.List;
 
@@ -42,6 +46,8 @@ import java.util.List;
 public class HEREPositioningProvider {
 
     private static final String LOG_TAG = HEREPositioningProvider.class.getName();
+
+    private LocationSimulator locationSimulator;
 
     private final LocationEngine locationEngine;
     private LocationListener updateListener;
@@ -94,6 +100,33 @@ public class HEREPositioningProvider {
         locationEngine.addLocationStatusListener(locationStatusListener);
 
         locationEngine.start(accuracy);
+    }
+
+    public void startMockLocating(LocationListener updateListener, Route route) {
+        if (locationSimulator != null) {
+            locationSimulator.stop();
+        }
+
+        locationSimulator = createLocationSimulator(updateListener, route);
+        locationSimulator.start();
+    }
+
+    private LocationSimulator createLocationSimulator(LocationListener locationListener, Route route) {
+        LocationSimulatorOptions locationSimulatorOptions = new LocationSimulatorOptions();
+        locationSimulatorOptions.speedFactor = 4;
+        locationSimulatorOptions.notificationInterval = Duration.ofMillis(500);
+
+        LocationSimulator locationSimulator;
+
+        try {
+            locationSimulator = new LocationSimulator(route, locationSimulatorOptions);
+        } catch (InstantiationErrorException e) {
+            throw new RuntimeException("Initialization of LocationSimulator failed: " + e.error.name());
+        }
+
+        locationSimulator.setListener(locationListener);
+
+        return locationSimulator;
     }
 
     // Does nothing when engine is already stopped.

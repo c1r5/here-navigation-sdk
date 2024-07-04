@@ -2,6 +2,8 @@ package br.com.herenavigatesdk
 
 import android.Manifest
 import android.app.Application
+import android.os.Vibrator
+import androidx.core.content.ContextCompat.getSystemService
 import br.com.herenavigatesdk.data.dtos.RoutePoint
 import com.cire.herenavigation.core.CoreSDK
 import com.google.gson.Gson
@@ -11,7 +13,7 @@ class BaseApp : Application() {
 
     companion object {
         var mockedRoutePoints: List<RoutePoint> = emptyList()
-
+        var vibrator: Vibrator? = null
         @JvmStatic
         val TAG = "HERENAVIGATESDK"
 
@@ -33,6 +35,9 @@ class BaseApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        vibrator = getSystemService(Vibrator::class.java)
+
         mockedRoutePoints = assets.open("waypoints.json").bufferedReader().use {
             gson().fromJson(it, Array<RoutePoint>::class.java).toList()
         }

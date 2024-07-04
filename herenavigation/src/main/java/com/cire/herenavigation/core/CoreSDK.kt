@@ -7,6 +7,7 @@ import com.here.sdk.core.GeoCircle
 import com.here.sdk.core.GeoCoordinates
 import com.here.sdk.core.GeoPolygon
 import com.here.sdk.core.Location
+import com.here.sdk.core.LocationListener
 import com.here.sdk.core.engine.SDKNativeEngine
 import com.here.sdk.core.engine.SDKOptions
 import com.here.sdk.mapview.LocationIndicator
@@ -28,7 +29,7 @@ import java.util.Date
 
 class CoreSDK(
     private val mapView: MapView
-) {
+): LocationListener {
 
 
     companion object {
@@ -110,13 +111,11 @@ class CoreSDK(
             }
         }
     }
-    fun updateLocation(location: Location) {
-        this.location = location
-        locationIndicator.updateLocation(location)
-    }
+
     fun showCircle(center: GeoCoordinates, radius: Double, color: Int) {
         mapScene.addCircle(center, radius, color)
     }
+
     fun showMarkers(
         routeProvider: RouteProvider,
         stopMarkerDrawable: Int,
@@ -127,13 +126,14 @@ class CoreSDK(
         routeProvider.origin().addMarker(mapView, originMarkerDrawable)
         routeProvider.destination().addMarker(mapView, destinationMarkerDrawable)
     }
+
     fun showRoute(routeProvider: RouteProvider, color: Int, width: Int) {
         if (CoreRouting.isInitialized()) {
             CoreRouting().calculateRoute(
                 routeProvider
             ) { routingError, routes ->
                 routingError?.let {
-                    _onCoreError.tryEmit(Throwable(it.name))
+                    _onCoreError.tryEmit(ShowRouteException(it.name))
                 } ?: run {
                     Log.d("HERENAVIGATESDK", "calculateRoute: $routes")
                     routes?.first()?.let {route: Route ->  mapScene.addRoute(route, Color.valueOf(color), width) }
@@ -143,4 +143,11 @@ class CoreSDK(
             _onCoreError.tryEmit(Throwable("Routing engine is not initialized."))
         }
     }
+
+    override fun onLocationUpdated(p0: Location) {
+        location = p0
+        locationIndicator.updateLocation(p0)
+    }
+
+    class ShowRouteException(message: String) : Exception(message)
 }

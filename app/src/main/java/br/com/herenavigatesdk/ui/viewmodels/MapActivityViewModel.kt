@@ -1,55 +1,22 @@
 package br.com.herenavigatesdk.ui.viewmodels
 
-import android.location.Location
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import br.com.herenavigatesdk.BaseApp.Companion.TAG
-import br.com.herenavigatesdk.BaseApp.Companion.mockedRoutePoints
 import br.com.herenavigatesdk.R
-import br.com.herenavigatesdk.data.providers.RouteProviderImpl
 import com.cire.herenavigation.audio.VoiceAssistant
-import com.cire.herenavigation.core.CoreCamera
-import com.cire.herenavigation.core.CoreNavigation
-import com.cire.herenavigation.core.CoreRouting
-import com.cire.herenavigation.core.CoreSDK
 import com.cire.herenavigation.core.CoreSDK.Companion.toWayPoint
 import com.cire.herenavigation.core.addMarker
-import com.cire.herenavigation.core.addRoute
-import com.cire.herenavigation.provider.HEREPositioningSimulator
-import com.google.android.gms.location.LocationAvailability
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.tasks.OnSuccessListener
-import com.here.sdk.core.Color
 import com.here.sdk.core.GeoCoordinates
-import com.here.sdk.core.GeoOrientationUpdate
-import com.here.sdk.core.LocationListener
-import com.here.sdk.location.LocationAccuracy
-import com.here.sdk.mapview.MapMeasure
 import com.here.sdk.mapview.MapView
-import com.here.sdk.navigation.MilestoneStatus
-import com.here.sdk.routing.CalculateRouteCallback
-import com.here.sdk.routing.Route
-import com.here.sdk.routing.Waypoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.math.round
 
 class MapActivityViewModel : ViewModel() {
     private var voiceAssistant: VoiceAssistant? = null
-
-    private val herePositioningSimulator =
-        HEREPositioningSimulator()
-
-
-
-    private val calculatedRoute = MutableStateFlow<Route?>(null)
-    private var coreLoader: CoreLoader? = null
 
     private val _isPositioning = MutableStateFlow(false)
     private val _mockAlertPoints = MutableStateFlow<MutableList<GeoCoordinates>>(mutableListOf())
@@ -57,50 +24,20 @@ class MapActivityViewModel : ViewModel() {
     private val _onNavigationError = MutableStateFlow<Throwable?>(null)
     private val _lastAlert = MutableStateFlow<AlertType?>(null)
     private val _userZoomDistance = MutableStateFlow(1000 * 3)
+    private val _audioState = MutableStateFlow(false)
 
     val onNavigationError = _onNavigationError.asStateFlow()
     val isNavigating = _isNavigating.asStateFlow()
     val isPositioning = _isPositioning.asStateFlow()
     val mockAlertPoints = _mockAlertPoints.asStateFlow()
     val userZoomDistance = _userZoomDistance.asStateFlow()
+    val audioState = _audioState.asStateFlow()
+    val lastAlert = _lastAlert.asStateFlow()
 
-    companion object {
-        class CoreLoader(
-            val coreCamera: CoreCamera?,
-            val coreRouting: CoreRouting?,
-            val coreNavigation: CoreNavigation?,
-            val coreSDK: CoreSDK?,
-        ) {
-            open class Builder(
-                private var coreCamera: CoreCamera? = null,
-                private var coreRouting: CoreRouting? = null,
-                private var coreNavigation: CoreNavigation? = null,
-                private var coreSDK: CoreSDK? = null
-            ) {
-                fun coreCamera(coreCamera: CoreCamera) = apply { this.coreCamera = coreCamera }
-                fun coreRouting(coreRouting: CoreRouting) = apply { this.coreRouting = coreRouting }
-                fun coreNavigation(coreNavigation: CoreNavigation) =
-                    apply { this.coreNavigation = coreNavigation }
-
-                fun coreSDK(coreSDK: CoreSDK) = apply { this.coreSDK = coreSDK }
-                fun build() =
-                    CoreLoader(coreCamera, coreRouting, coreNavigation, coreSDK)
-            }
-        }
+    fun onAudioToggleButtonPressed() {
+        _audioState.value = !_audioState.value
     }
 
-    val hereLocationAccuracy = MutableStateFlow(LocationAccuracy.BEST_AVAILABLE)
-    val hereLocationListener: (mapview: MapView, coresdk: CoreSDK) -> LocationListener = { mapView, coreSDK ->
-        LocationListener {
-            coreSDK.updateLocation(it)
-        }
-    }
-
-    fun setAccuray(accuracy: LocationAccuracy) {
-        viewModelScope.launch {
-            hereLocationAccuracy.emit(accuracy)
-        }
-    }
 
 //    fun oneTimeLocationListener(
 //        coreLoader: CoreLoader

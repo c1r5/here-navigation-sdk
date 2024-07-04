@@ -1,43 +1,38 @@
 package br.com.herenavigatesdk.ui.activities
 
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.speech.tts.TextToSpeech
+import android.os.VibrationEffect
 import android.util.Log
+import android.view.HapticFeedbackConstants
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat.OnRequestPermissionsResultCallback
 import br.com.herenavigatesdk.BaseApp
-import br.com.herenavigatesdk.BaseApp.Companion
 import br.com.herenavigatesdk.BaseApp.Companion.TAG
 import br.com.herenavigatesdk.BaseApp.Companion.mockedRoutePoints
 import br.com.herenavigatesdk.R
-import br.com.herenavigatesdk.data.providers.GeolocationProvider
 import br.com.herenavigatesdk.data.providers.RouteProviderImpl
 import br.com.herenavigatesdk.databinding.ActivityMapBinding
 import br.com.herenavigatesdk.ui.viewmodels.MapActivityViewModel
-import br.com.herenavigatesdk.ui.viewmodels.MapActivityViewModel.Companion.CoreLoader
 import br.com.herenavigatesdk.usecase.hasLocationPermission
-import com.cire.herenavigation.audio.VoiceAssistant
-import com.cire.herenavigation.helper.PermissionsRequestor
 import com.cire.herenavigation.core.CoreCamera
 import com.cire.herenavigation.core.CoreNavigation
 import com.cire.herenavigation.core.CoreRouting
 import com.cire.herenavigation.core.CoreSDK
+import com.cire.herenavigation.helper.PermissionsRequestor
 import com.cire.herenavigation.provider.HEREPositioningProvider
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.here.posclient.ConsentState
 import com.here.sdk.core.GeoCoordinates
+import com.here.sdk.location.LocationAccuracy
 import com.here.sdk.mapview.MapView
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 
@@ -49,6 +44,7 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
     private lateinit var fabStartNavigation: ExtendedFloatingActionButton
     private lateinit var fabRecenter: FloatingActionButton
     private lateinit var fabToggleAudio: FloatingActionButton
+    private lateinit var fabRoute: FloatingActionButton
 
     private lateinit var coreSDK: CoreSDK
     private lateinit var coreCamera: CoreCamera
@@ -93,6 +89,7 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
         fabStartNavigation = activityMapBinding.fabStartNavigation
         fabRecenter = activityMapBinding.fabRecenter
         fabToggleAudio = activityMapBinding.fabToggleAudio
+        fabRoute = activityMapBinding.fabRoute
 
         permissionsRequestor = PermissionsRequestor(this)
         herePositioningProvider = HEREPositioningProvider()
@@ -109,6 +106,24 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
             lastKnownLocation.value?.let { geoCoordinates -> coreCamera.recenter(geoCoordinates, mapActivityViewModel.userZoomDistance.value.toDouble())}
         }
 
+        fabStartNavigation.setOnClickListener {
+            coreNavigation.startNavigation().also { herePositioningProvider.startLocating(coreNavigation, LocationAccuracy.NAVIGATION) }
+        }
+
+        fabRoute.setOnClickListener {
+            coreSDK.showRoute(routeProvider, R.color.blue_A700, 10)
+        }
+
+
+        fabToggleAudio.setOnClickListener {
+            mapActivityViewModel.onAudioToggleButtonPressed()
+            fabToggleAudio.setImageResource(if (mapActivityViewModel.audioState.value) R.drawable.ic_audio_off else R.drawable.ic_audio_on)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                BaseApp.vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+            }
+        }
+
+
         onLocationState {
             fabStartNavigation.isEnabled = it
             fabToggleAudio.isEnabled = it
@@ -116,7 +131,16 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
         }
 
         coreSDK.onCoreError {
-            Log.d(TAG, "coreError: $it")
+            when (it) {
+                is CoreSDK.ShowRouteException -> {
+                    Toast.makeText(this, "Erro ao carregar rota", Toast.LENGTH_SHORT).show()
+                }
+                else -> Log.d(TAG, "coreSDKError: $it")
+            }
+        }
+
+        coreNavigation.onCoreNavigationError {
+            Log.d(TAG, "coreNavigationError: $it")
         }
 
         if(hasLocationPermission()) {
@@ -133,7 +157,6 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
             }
         }
     }
-
     private fun centerInLocation() {
         Handler(Looper.getMainLooper()).postDelayed({
             lastKnownLocation.value?.let { geoCoordinates ->
@@ -158,18 +181,8 @@ class MapActivity : AppCompatActivity(), OnRequestPermissionsResultCallback {
         })
     }
     private fun startPositioning() {
-        MainScope().launch {
-            mapActivityViewModel.hereLocationAccuracy.collect {accuracy ->
-                herePositioningProvider.stopLocating()
-
-                Handler(Looper.getMainLooper()).postDelayed({
-                    herePositioningProvider.startLocating(
-                        mapActivityViewModel.hereLocationListener(mapView, coreSDK),
-                        accuracy
-                    )
-                }, 500)
-            }
-        }
+        herePositioningProvider.stopLocating()
+        herePositioningProvider.startLocating(coreSDK, LocationAccuracy.BEST_AVAILABLE)
     }
 
     override fun onPause() {
